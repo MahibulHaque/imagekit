@@ -1,4 +1,4 @@
-main_package_path = ./cmd
+main_package_path = ./cmd/lamda
 binary_name = imagekit
 
 # ==================================================================================== #
