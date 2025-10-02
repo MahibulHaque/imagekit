@@ -1,0 +1,5 @@
+aws_region           = "us-east-1"
+environment          = "dev"
+project_name         = "imgix"
+ecr_repository_name  = "imgix"
+lambda_function_name = "imgix"
