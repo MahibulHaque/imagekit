@@ -65,7 +65,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 
  # S3 Cache Bucket Origin
   origin {
-    domain_name              = aws_s3_bucket.cache.bucket_regional_domain_name
+    domain_name = var.s3_origin_bucket_domain
     origin_id                = "S3-Cache"
     origin_access_control_id = aws_cloudfront_origin_access_control.cache.id
   }
