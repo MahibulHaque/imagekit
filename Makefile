@@ -1,81 +1,42 @@
-main_package_path = ./cmd/lamda
-binary_name = imagekit
+.PHONY: help build build-optimized test docker-build docker-build-optimized docker-push deploy clean
 
-# ==================================================================================== #
-# HELPERS
-# ==================================================================================== #
+# Variables
+PROJECT_NAME ?= imgix
+AWS_REGION ?= us-east-1
+AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
+ECR_REGISTRY ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+ECR_REPOSITORY ?= $(PROJECT_NAME)
+IMAGE_TAG ?= latest
+FULL_IMAGE_NAME = $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(IMAGE_TAG)
 
-## help: print this help message
-.PHONY: help
-help:
-    @echo 'Usage:'
-    @sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
+# Enable Docker BuildKit for faster builds
+export DOCKER_BUILDKIT=1
 
-.PHONY: confirm
-confirm:
-    @echo -n 'Are you sure? [y/N] ' && read ans && [ $${ans:-N} = y ]
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $1, $2}' $(MAKEFILE_LIST)
 
-.PHONY: no-dirty
-no-dirty:
-    @test -z "$(shell git status --porcelain)"
+init: ## Initialize Go modules
+	go mod download
+	go mod tidy
+	go mod verify
 
-# ==================================================================================== #
-# QUALITY CONTROL
-# ==================================================================================== #
+build: ## Build the Go binary locally
+	CGO_ENABLED=1 go build -o bin/main ./cmd/lambda
 
-## audit: run quality control checks
-.PHONY: audit
-audit: test
-    go mod tidy -diff
-    go mod verify
-    test -z "$(shell gofmt -l .)" 
-    go vet ./...
-    go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
-    go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+test: ## Run tests
+	go test -v ./...
 
-## test: run all tests
-.PHONY: test
-test:
-    go test -v -race -buildvcs ./...
+lint: ## Run linter
+	golangci-lint run ./...
 
-## test/cover: run all tests and display coverage
-.PHONY: test/cover
-test/cover:
-    go test -v -race -buildvcs -coverprofile=/tmp/coverage.out ./...
-    go tool cover -html=/tmp/coverage.out
+docker-build: ## Build Docker image (standard)
+	docker build -t $(ECR_REPOSITORY):$(IMAGE_TAG) .
+	docker tag $(ECR_REPOSITORY):$(IMAGE_TAG) $(FULL_IMAGE_NAME)
 
-## upgradeable: list direct dependencies that have upgrades available
-.PHONY: upgradeable
-upgradeable:
-    @go run github.com/oligot/go-mod-upgrade@latest
-
-# ==================================================================================== #
-# DEVELOPMENT
-# ==================================================================================== #
-
-## tidy: tidy modfiles and format .go files
-.PHONY: tidy
-tidy:
-    go mod tidy -v
-    go fmt ./...
-
-## build: build the application
-.PHONY: build
-build:
-    # Include additional build steps, like TypeScript, SCSS or Tailwind compilation here...
-    go build -o=/tmp/bin/${binary_name} ${main_package_path}
-
-## run: run the  application
-.PHONY: run
-run: build
-    /tmp/bin/${binary_name}
-
-## run/live: run the application with reloading on file changes
-.PHONY: run/live
-run/live:
-    go run github.com/cosmtrek/air@v1.43.0 \
-        --build.cmd "make build" --build.bin "/tmp/bin/${binary_name}" --build.delay "100" \
-        --build.exclude_dir "" \
-        --build.include_ext "go, tpl, tmpl, html, css, scss, js, ts, sql, jpeg, jpg, gif, png, bmp, svg, webp, ico" \
-        --misc.clean_on_exit "true"
+docker-push: ecr-login ecr-create ## Push Docker image to ECR
+	docker push $(FULL_IMAGE_NAME)
+	@echo "Pushed: $(FULL_IMAGE_NAME)"
 
