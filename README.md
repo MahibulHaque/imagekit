@@ -6,26 +6,7 @@ A serverless image optimization service using Go, bimg (libvips), and AWS - foll
 
 Based on: [AWS Image Optimization Blog](https://aws.amazon.com/blogs/networking-and-content-delivery/image-optimization-using-amazon-cloudfront-and-aws-lambda/)
 
-```
-┌──────┐    ┌─────────────┐    ┌──────────────────┐
-│ User │───▶│ CloudFront  │───▶│ CloudFront Func  │
-└──────┘    └─────────────┘    │ (URL Rewrite)    │
-                               └──────────────────┘
-                                        │
-                        ┌───────────────┴───────────────┐
-                        ▼                               ▼
-                ┌───────────────┐              ┌──────────────┐
-                │  S3 Cache     │              │   Lambda     │
-                │  [CACHE HIT]  │              │  (on miss)   │
-                └───────────────┘              └──────────────┘
-                                                      │
-                                        ┌─────────────┴─────────────┐
-                                        ▼                           ▼
-                                ┌──────────────┐          ┌──────────────┐
-                                │ S3 Source    │          │  S3 Cache    │
-                                │ (originals)  │          │  (optimized) │
-                                └──────────────┘          └──────────────┘
-```
+<image src="public/images/diagram.png" alt='system diagram'>
 
 ## ✨ Features
 
